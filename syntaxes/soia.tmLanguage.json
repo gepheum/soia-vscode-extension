@@ -1,0 +1,129 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Soia",
+  "patterns": [
+    { "include": "#comments" },
+    { "include": "#keywords" },
+    { "include": "#types" },
+    { "include": "#strings" },
+    { "include": "#constants" },
+    { "include": "#numbers" },
+    { "include": "#function-calls" },
+    { "include": "#imports" }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.line.double-slash.soia",
+          "begin": "//",
+          "end": "$"
+        },
+        {
+          "name": "comment.block.soia",
+          "begin": "/\\*",
+          "end": "\\*/"
+        }
+      ]
+    },
+    "keywords": {
+      "patterns": [
+        {
+          "name": "keyword.control.soia",
+          "match": "\\b(struct|enum|const|method|import|from|as|removed)\\b"
+        }
+      ]
+    },
+    "types": {
+      "patterns": [
+        {
+          "name": "storage.type.soia",
+          "match": "\\b(bool|int32|int64|uint32|uint64|float32|float64|string|bytes|timestamp)\\b"
+        },
+        {
+          "name": "storage.type.soia",
+          "match": "\\b([A-Z][A-Za-z0-9_]*)\\b"
+        }
+      ]
+    },
+    "strings": {
+      "patterns": [
+        {
+          "name": "string.quoted.double.soia",
+          "begin": "\"",
+          "end": "\"",
+          "patterns": [
+            {
+              "name": "constant.character.escape.soia",
+              "match": "\\\\."
+            }
+          ]
+        },
+        {
+          "name": "string.quoted.single.soia",
+          "begin": "'",
+          "end": "'",
+          "patterns": [
+            {
+              "name": "constant.character.escape.soia",
+              "match": "\\\\."
+            }
+          ]
+        }
+      ]
+    },
+    "constants": {
+      "patterns": [
+        {
+          "name": "constant.language.soia",
+          "match": "\\b(true|false|null)\\b"
+        },
+        {
+          "name": "constant.other.soia",
+          "match": "\\b([A-Z][A-Z0-9_]*)\\b"
+        }
+      ]
+    },
+    "numbers": {
+      "patterns": [
+        {
+          "name": "constant.numeric.soia",
+          "match": "\\b(-?\\d+(\\.\\d+)?([eE][+-]?\\d+)?)\\b"
+        }
+      ]
+    },
+    "function-calls": {
+      "patterns": [
+        {
+          "name": "entity.name.function.soia",
+          "match": "\\b([a-zA-Z_][a-zA-Z0-9_]*)\\s*(?=\\()"
+        }
+      ]
+    },
+    "imports": {
+      "patterns": [
+        {
+          "match": "\\b(import)\\s+([A-Za-z_][A-Za-z0-9_]*)\\s+(from)\\s+\"([^\"]+)\"",
+          "captures": {
+            "1": { "name": "keyword.control.import.soia" },
+            "2": { "name": "entity.name.type.soia" },
+            "3": { "name": "keyword.control.from.soia" },
+            "4": { "name": "string.quoted.double.soia" }
+          }
+        },
+        {
+          "match": "\\b(import)\\s+(\\*)\\s+(as)\\s+([A-Za-z_][A-Za-z0-9_]*)\\s+(from)\\s+\"([^\"]+)\"",
+          "captures": {
+            "1": { "name": "keyword.control.import.soia" },
+            "2": { "name": "constant.other.soia" },
+            "3": { "name": "keyword.control.as.soia" },
+            "4": { "name": "entity.name.namespace.soia" },
+            "5": { "name": "keyword.control.from.soia" },
+            "6": { "name": "string.quoted.double.soia" }
+          }
+        }
+      ]
+    }
+  },
+  "scopeName": "source.soia"
+}

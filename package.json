@@ -1,0 +1,68 @@
+{
+  "name": "soia-language",
+  "displayName": "Soia - Language Support",
+  "description": "Language support for Soia - a language for representing data types, constants and RPC interfaces",
+  "version": "0.1.0",
+  "publisher": "TylerFibonacci",
+  "engines": {
+    "vscode": "^1.60.0"
+  },
+  "icon": "resources/soia-icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/gepheum/soia"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "keywords": [
+    "soia",
+    "protocol buffer",
+    "protobuf",
+    "serialization",
+    "rpc"
+  ],
+  "activationEvents": [
+    "onLanguage:soia"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "soia",
+        "aliases": ["Soia", "soia"],
+        "extensions": [".soia"],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "soia",
+        "scopeName": "source.soia",
+        "path": "./syntaxes/soia.tmLanguage.json"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "lint": "eslint . --ext .ts,.tsx",
+    "package": "vsce package"
+  },
+  "dependencies": {
+    "vscode-languageclient": "^7.0.0",
+    "vscode-languageserver": "^7.0.0",
+    "vscode-languageserver-textdocument": "^1.0.7",
+    "vscode-uri": "^3.0.6"
+  },
+  "devDependencies": {
+    "@types/node": "^16.11.7",
+    "@types/vscode": "^1.60.0",
+    "@typescript-eslint/eslint-plugin": "^5.30.0",
+    "@typescript-eslint/parser": "^5.30.0",
+    "eslint": "^8.13.0",
+    "typescript": "^4.7.2",
+    "vsce": "^2.10.0"
+  }
+}

@@ -2,7 +2,7 @@
   "name": "soia-language",
   "displayName": "Soia - Language Support",
   "description": "Language support for Soia - a language for representing data types, constants and RPC interfaces",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "publisher": "TylerFibonacci",
   "engines": {
     "vscode": "^1.60.0"
@@ -30,8 +30,13 @@
     "languages": [
       {
         "id": "soia",
-        "aliases": ["Soia", "soia"],
-        "extensions": [".soia"],
+        "aliases": [
+          "Soia",
+          "soia"
+        ],
+        "extensions": [
+          ".soia"
+        ],
         "configuration": "./language-configuration.json"
       }
     ],
@@ -48,21 +53,24 @@
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
     "lint": "eslint . --ext .ts,.tsx",
+    "format": "prettier --write \"src/**/*.ts\"",
+    "format:check": "prettier --check \"src/**/*.ts\"",
     "package": "vsce package"
   },
   "dependencies": {
-    "vscode-languageclient": "^7.0.0",
-    "vscode-languageserver": "^7.0.0",
-    "vscode-languageserver-textdocument": "^1.0.7",
-    "vscode-uri": "^3.0.6"
+    "soiac": "^1.0.35",
+    "yaml": "^2.5.1",
+    "zod-validation-error": "^3.4.0"
   },
   "devDependencies": {
+    "@trivago/prettier-plugin-sort-imports": "^4.3.0",
     "@types/node": "^16.11.7",
     "@types/vscode": "^1.60.0",
     "@typescript-eslint/eslint-plugin": "^5.30.0",
     "@typescript-eslint/parser": "^5.30.0",
     "eslint": "^8.13.0",
+    "prettier": "^3.6.2",
     "typescript": "^4.7.2",
-    "vsce": "^2.10.0"
+    "vsce": "^1.97.0"
   }
 }

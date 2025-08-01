@@ -2,7 +2,7 @@
   "name": "soia-language",
   "displayName": "Soia - Language Support",
   "description": "Language support for Soia - a language for representing data types, constants and RPC interfaces",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "publisher": "TylerFibonacci",
   "engines": {
     "vscode": "^1.60.0"

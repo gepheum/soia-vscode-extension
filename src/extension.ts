@@ -1,6 +1,4 @@
 // TODO: diagnostics for invalid soia.yml files
-// TODO: should I not call getText at each time? should I instead use the scheduling loop?
-// TODO: make sure handle lints even without saving
 // TODO: jump to definition
 import { SoiaConfig } from "soiac/dist/config.js";
 import { ModuleParser, ModuleSet } from "soiac/dist/module_set.js";
@@ -27,6 +25,7 @@ export class LanguageExtension {
   }
 
   setFileContent(uri: string, content: string): void {
+    console.log(`Setting content for ${uri}`);
     this.deleteFile(uri);
     const fileType = getFileType(uri);
     switch (fileType) {
@@ -76,6 +75,23 @@ export class LanguageExtension {
         const _: null = fileType;
       }
     }
+  }
+
+  scheduleSetFileContent(uri: string, document: vscode.TextDocument): void {
+    const oldTimeout = this.uriToTimeout.get(uri);
+    if (oldTimeout) {
+      clearTimeout(oldTimeout);
+    }
+    const delayMilliseconds = 100;
+    const timeout = setTimeout(() => {
+      this.uriToTimeout.delete(uri);
+      try {
+        this.setFileContent(uri, document.getText());
+      } catch (error) {
+        console.error(`Error setting file content for ${uri}:`, error);
+      }
+    }, delayMilliseconds);
+    this.uriToTimeout.set(uri, timeout);
   }
 
   private reassignModulesToWorkspaces(deletedUri: string): void {
@@ -169,6 +185,7 @@ export class LanguageExtension {
   private reassigneModulesTimeout?: NodeJS.Timeout;
   private readonly moduleBundles = new Map<string, ModuleBundle>(); // key: file URI
   private readonly workspaces = new Map<string, Workspace>(); // key: file URI
+  private readonly uriToTimeout = new Map<string, NodeJS.Timeout>();
 }
 
 function errorToDiagnostic(error: SoiaError): Diagnostic {
@@ -350,9 +367,11 @@ const languageExtension = new LanguageExtension();
 
 class FileContentManager {
   private fileWatcher?: vscode.FileSystemWatcher;
+  private documentChangeListener?: vscode.Disposable;
 
   constructor() {
     this.setupFileWatcher();
+    this.setupDocumentChangeListener();
   }
 
   private setupFileWatcher(): void {
@@ -370,6 +389,22 @@ class FileContentManager {
     this.fileWatcher.onDidDelete(async (uri) => {
       await this.handleFileChange(uri, "deleted");
     });
+  }
+
+  private setupDocumentChangeListener(): void {
+    // Listen for document changes (unsaved edits)
+    this.documentChangeListener = vscode.workspace.onDidChangeTextDocument(
+      (event) => {
+        const uri = event.document.uri;
+        const uriString = uri.toString();
+
+        // Only handle soia.yml and .soia files
+        if (getFileType(uriString)) {
+          console.log(`Document change detected: ${uriString}`);
+          languageExtension.scheduleSetFileContent(uriString, event.document);
+        }
+      },
+    );
   }
 
   private async handleFileChange(
@@ -424,6 +459,7 @@ class FileContentManager {
 
   dispose(): void {
     this.fileWatcher?.dispose();
+    this.documentChangeListener?.dispose();
   }
 }
 

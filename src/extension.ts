@@ -1,4 +1,3 @@
-// TODO: handle the weirdness I'm seeing with multiple workspaces, where sometimes a module just seems to stay out in the limbs
 import { SoiaConfig } from "soiac/dist/config.js";
 import { findDefinition } from "soiac/dist/definition_finder.js";
 import { ModuleParser, ModuleSet } from "soiac/dist/module_set.js";
@@ -22,20 +21,15 @@ export class SoiaLanguageExtension {
   constructor() {
     this.diagnosticCollection =
       vscode.languages.createDiagnosticCollection("soia");
-    setInterval(() => {
-      this.printDebug();
-    }, 2000);
   }
 
   setFileContent(uri: string, content: string): void {
-    console.log(`Setting content for ${uri}`);
     this.deleteFile(uri);
     const fileType = getFileType(uri);
     switch (fileType) {
       case "soia.yml": {
         const workspace = this.parseSoiaConfig(content, uri);
         if (workspace instanceof Workspace) {
-          this.diagnosticCollection.set(vscode.Uri.parse(uri), []);
           this.workspaces.set(uri, workspace);
           this.reassignModulesToWorkspaces();
         } else {
@@ -177,7 +171,6 @@ export class SoiaLanguageExtension {
         const newWorkspace = this.findModuleWorkspace(moduleUri);
         if (newWorkspace) {
           Workspace.addModule(moduleBundle, newWorkspace);
-          this.diagnosticCollection.set(vscode.Uri.parse(moduleUri), []);
         }
       }
       for (const workspace of this.workspaces.values()) {
@@ -228,9 +221,6 @@ export class SoiaLanguageExtension {
   /** Finds the workspace which contains the given module URI. */
   private findModuleWorkspace(moduleUri: string): ModuleWorkspace | undefined {
     let match: Workspace | undefined;
-    // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    // TODO: rm
-    let debugString = `Trying to assign ${moduleUri} to a workspace; `;
     const leftIsBetter = (left: Workspace, right: Workspace | undefined) => {
       if (right === undefined || left.rootUri.length < right.rootUri.length) {
         return true;
@@ -243,13 +233,10 @@ export class SoiaLanguageExtension {
     };
     for (const workspace of this.workspaces.values()) {
       const { rootUri } = workspace;
-      debugString += `checking workspace ${rootUri}; `;
       if (moduleUri.startsWith(rootUri) && leftIsBetter(workspace, match)) {
         match = workspace;
       }
     }
-    debugString += `result: ${match?.rootUri}; `;
-    console.log(debugString);
     if (!match) {
       const zeroRange = new vscode.Range(
         new vscode.Position(0, 0),
@@ -288,18 +275,6 @@ export class SoiaLanguageExtension {
         this.deleteFile(uri);
       }
     }
-  }
-
-  // TODO: remove this!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  private printDebug() {
-    let result = "FOoobar ";
-    for (const [uri, moduleBundle] of this.moduleBundles.entries()) {
-      result += `\nModuleBundle: ${uri}; modulePath:${moduleBundle.moduleWorkspace?.modulePath}; rootUri:${moduleBundle.moduleWorkspace?.workspace.rootUri};`;
-    }
-    for (const [uri, workspace] of this.workspaces.entries()) {
-      result += `\nWorkspace: ${uri}; rootUri:${workspace.rootUri}; `;
-    }
-    console.log(result);
   }
 
   private reassigneModulesTimeout?: NodeJS.Timeout;
@@ -425,17 +400,12 @@ class Workspace implements ModuleParser {
    * Stores the errors in every module bundle.
    */
   private resolve(): void {
-    // TODO: rm!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    console.log(`Resolving workspace at ${this.rootUri}`);
-    let debugString = "ZANZIBAR ";
     try {
       const moduleSet = new ModuleSet(this);
       for (const [modulePath, moduleBundle] of this.modules.entries()) {
         const parseResult = moduleSet.parseAndResolve(modulePath);
-        debugString += `modulePath: ${modulePath}; uri: ${moduleBundle.uri}; errors: ${parseResult.errors.length}; `;
         this.updateDiagnostics(moduleBundle, parseResult.errors);
       }
-      console.log(debugString);
     } catch (error) {
       console.error(`Error during resolution:`, error);
     } finally {
@@ -560,7 +530,7 @@ class FileContentManager {
    * in `soiaLanguageExtension` and then runs a scan on the filesystem.
    */
   scheduleScanLoop(): void {
-    const delayMilliseconds = 10000; // 10 seconds
+    const delayMilliseconds = 30000; // 30 seconds
     setInterval(() => this.runScanLoopIteration(), delayMilliseconds);
   }
 

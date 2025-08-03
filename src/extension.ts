@@ -48,7 +48,6 @@ export class SoiaLanguageExtension {
         break;
       }
       case "*.soia": {
-        const oldModuleBundle = this.moduleBundles.get(uri);
         const moduleBundle = this.parseSoiaModule(content, uri);
         const moduleWorkspace = this.findModuleWorkspace(moduleBundle);
         this.moduleBundles.set(uri, moduleBundle);
@@ -451,7 +450,7 @@ class Workspace implements ModuleParser {
     moduleBundle: ModuleBundle,
     errors: readonly SoiaError[],
   ): void {
-    const { uri, content } = moduleBundle;
+    const { uri } = moduleBundle;
     if (errors.length <= 0) {
       this.diagnosticCollection.set(vscode.Uri.parse(uri), []);
     }
@@ -525,8 +524,12 @@ class FileContentManager {
         const aIsSoiaYml = a.toString().endsWith("/soia.yml");
         const bIsSoiaYml = b.toString().endsWith("/soia.yml");
 
-        if (aIsSoiaYml && !bIsSoiaYml) return -1;
-        if (!aIsSoiaYml && bIsSoiaYml) return 1;
+        if (aIsSoiaYml && !bIsSoiaYml) {
+          return -1;
+        }
+        if (!aIsSoiaYml && bIsSoiaYml) {
+          return 1;
+        }
         return 0;
       });
       for (const uri of files) {

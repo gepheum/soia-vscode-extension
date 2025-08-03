@@ -23,18 +23,11 @@ export class SoiaLanguageExtension {
       vscode.languages.createDiagnosticCollection("soia");
   }
 
-  setFileContent(uri: string, content: string): void {
+  setFileContent(uri: string, content: FileContent): void {
+    this.deleteFile(uri);
     const fileType = getFileType(uri);
     switch (fileType) {
       case "soia.yml": {
-        const oldWorkspace = this.workspaces.get(uri);
-        if (oldWorkspace) {
-          if (oldWorkspace.yamlContent === content) {
-            // No change, do nothing.
-            return;
-          }
-          this.deleteFile(uri);
-        }
         const workspace = this.parseSoiaConfig(content, uri);
         if (workspace instanceof Workspace) {
           this.workspaces.set(uri, workspace);
@@ -56,13 +49,6 @@ export class SoiaLanguageExtension {
       }
       case "*.soia": {
         const oldModuleBundle = this.moduleBundles.get(uri);
-        if (oldModuleBundle) {
-          if (oldModuleBundle.content === content) {
-            // No change, do nothing.
-            return;
-          }
-          this.deleteFile(uri);
-        }
         const moduleBundle = this.parseSoiaModule(content, uri);
         const moduleWorkspace = this.findModuleWorkspace(moduleBundle);
         this.moduleBundles.set(uri, moduleBundle);
@@ -75,6 +61,13 @@ export class SoiaLanguageExtension {
         const _: null = fileType;
       }
     }
+  }
+
+  getFileContent(uri: string): FileContent | undefined {
+    return (
+      this.moduleBundles.get(uri)?.content ||
+      this.workspaces.get(uri)?.yamlContent
+    );
   }
 
   deleteFile(uri: string): void {
@@ -90,9 +83,17 @@ export class SoiaLanguageExtension {
         break;
       }
       case "*.soia": {
+        // Cancel the `scheduledSetFileContent` if it exists
+        const timeout = this.uriToTimeout.get(uri);
+        if (timeout) {
+          clearTimeout(timeout);
+          this.uriToTimeout.delete(uri);
+        }
         const moduleBundle = this.moduleBundles.get(uri);
         if (moduleBundle) {
+          // Remove the module from its workspace
           Workspace.removeModule(moduleBundle);
+          // Remove the module bundle from the map
           this.moduleBundles.delete(uri);
         }
         break;
@@ -112,7 +113,10 @@ export class SoiaLanguageExtension {
     const timeout = setTimeout(() => {
       this.uriToTimeout.delete(uri);
       try {
-        this.setFileContent(uri, document.getText());
+        this.setFileContent(uri, {
+          content: document.getText(),
+          lastModified: undefined,
+        });
       } catch (error) {
         console.error(`Error setting file content for ${uri}:`, error);
       }
@@ -146,14 +150,14 @@ export class SoiaLanguageExtension {
     const targetUri = vscode.Uri.parse(
       new URL(definitionMatch.modulePath, workspace.rootUri).href,
     );
-    const targetContent = this.moduleBundles.get(targetUri.toString())?.content;
-    if (!targetContent) {
+    const target = this.moduleBundles.get(targetUri.toString());
+    if (!target) {
       console.warn(
         `Module ${targetUri.toString()} not found, skipping definition lookup.`,
       );
       return null;
     }
-    const positionTracker = new PositionTracker(targetContent);
+    const positionTracker = new PositionTracker(target.content.content);
     const targetPosition = positionTracker.getPosition(
       definitionMatch.position,
     );
@@ -193,13 +197,13 @@ export class SoiaLanguageExtension {
   }
 
   private parseSoiaConfig(
-    content: string,
+    content: FileContent,
     uri: string,
   ): Workspace | ValidationError {
     let soiaConfig: SoiaConfig;
     {
       // `yaml.parse` fail with a helpful error message, no need to add context.
-      const parseResult = SoiaConfig.safeParse(yaml.parse(content));
+      const parseResult = SoiaConfig.safeParse(yaml.parse(content.content));
       if (parseResult.success) {
         soiaConfig = parseResult.data;
       } else {
@@ -214,10 +218,10 @@ export class SoiaLanguageExtension {
     return new Workspace(rootUri, content, this.diagnosticCollection);
   }
 
-  private parseSoiaModule(content: string, uri: string): ModuleBundle {
+  private parseSoiaModule(content: FileContent, uri: string): ModuleBundle {
     let astTree: Result<Module | null>;
     {
-      const tokens = tokenizeModule(content, uri);
+      const tokens = tokenizeModule(content.content, uri);
       if (tokens.errors.length !== 0) {
         astTree = {
           result: null,
@@ -316,9 +320,15 @@ interface ModuleWorkspace {
   readonly modulePath: string;
 }
 
+interface FileContent {
+  content: string;
+  /** Mtime or undefined if the last modification comes from the editor. */
+  lastModified: number | undefined;
+}
+
 interface ModuleBundle {
   uri: string;
-  content: string;
+  content: FileContent;
   readonly astTree: Result<Module | null>;
   moduleWorkspace?: ModuleWorkspace;
 }
@@ -326,7 +336,7 @@ interface ModuleBundle {
 class Workspace implements ModuleParser {
   constructor(
     readonly rootUri: string,
-    readonly yamlContent: string,
+    readonly yamlContent: FileContent,
     private diagnosticCollection: vscode.DiagnosticCollection,
   ) {}
 
@@ -464,7 +474,10 @@ class SoiaDefinitionProvider implements vscode.DefinitionProvider {
       const uri = document.uri.toString();
       const content = document.getText();
 
-      this.soiaLanguageExtension.setFileContent(uri, content);
+      this.soiaLanguageExtension.setFileContent(uri, {
+        content,
+        lastModified: undefined,
+      });
       return this.soiaLanguageExtension.findDefinitionAt(uri, offset);
     } catch (error) {
       console.error(`Error finding definition at ${position}:`, error);
@@ -472,8 +485,6 @@ class SoiaDefinitionProvider implements vscode.DefinitionProvider {
     }
   }
 }
-
-const GLOB_PATTERN = "**/{soia.yml,*.soia}";
 
 class FileContentManager {
   private readonly documentChangeListener: vscode.Disposable;
@@ -506,22 +517,53 @@ class FileContentManager {
     }
 
     for (const folder of workspaceFolders) {
-      const files = await vscode.workspace.findFiles(
-        new vscode.RelativePattern(folder, GLOB_PATTERN),
+      let files = await vscode.workspace.findFiles(
+        new vscode.RelativePattern(folder, "**/{soia.yml,*.soia}"),
       );
+      // Make sure soia.yml files are processed first
+      files = files.sort((a, b) => {
+        const aIsSoiaYml = a.toString().endsWith("/soia.yml");
+        const bIsSoiaYml = b.toString().endsWith("/soia.yml");
 
-      const uriToContent = new Map<string, string>();
+        if (aIsSoiaYml && !bIsSoiaYml) return -1;
+        if (!aIsSoiaYml && bIsSoiaYml) return 1;
+        return 0;
+      });
       for (const uri of files) {
+        const uriString = uri.toString();
+        const oldContent = this.soiaLanguageExtension.getFileContent(uriString);
+        let mtime: number | undefined;
+        try {
+          const stat = await vscode.workspace.fs.stat(uri);
+          mtime = stat.mtime;
+        } catch (error) {
+          console.error(`Failed to stat file ${uri}:`, error);
+          continue;
+        }
+        if (
+          oldContent &&
+          oldContent.lastModified &&
+          oldContent.lastModified >= mtime
+        ) {
+          // No need to read the file again, it hasn't changed.
+          continue;
+        }
+        let content: string;
         try {
           const text = await vscode.workspace.fs.readFile(uri);
-          const content = Buffer.from(text).toString("utf-8");
-          uriToContent.set(uri.toString(), content);
+          content = Buffer.from(text).toString("utf-8");
         } catch (error) {
           console.error(`Failed to read file ${uri}:`, error);
+          continue;
         }
-      }
-      for (const [uri, content] of uriToContent.entries()) {
-        this.soiaLanguageExtension.setFileContent(uri, content);
+        if (oldContent && oldContent.content === content) {
+          // No need to update, content is the same.
+          continue;
+        }
+        this.soiaLanguageExtension.setFileContent(uriString, {
+          content,
+          lastModified: mtime,
+        });
       }
     }
   }
@@ -625,7 +667,7 @@ function errorsToDiagnostics(
   errors: readonly SoiaError[],
   moduleBundle: ModuleBundle,
 ): vscode.Diagnostic[] {
-  const positionTracker = new PositionTracker(moduleBundle.content);
+  const positionTracker = new PositionTracker(moduleBundle.content.content);
   return errors.map((error) => {
     const { token } = error;
     const startPosition = positionTracker.getPosition(token.position);

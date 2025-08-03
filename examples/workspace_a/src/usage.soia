@@ -38,13 +38,13 @@ enum ShapeType {
 struct Shape {
   type: ShapeType;
   label: string;
-  
+
   // Example of a nested struct
   struct Dimensions {
     width: float32;
     height: float32;
   }
-  
+
   dimensions: Dimensions?;
 }
 

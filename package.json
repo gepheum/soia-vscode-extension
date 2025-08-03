@@ -58,7 +58,7 @@
     "package": "vsce package"
   },
   "dependencies": {
-    "soiac": "^1.0.38",
+    "soiac": "^1.0.40",
     "yaml": "^2.5.1",
     "zod-validation-error": "^3.4.0"
   },

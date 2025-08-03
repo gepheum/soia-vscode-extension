@@ -577,7 +577,7 @@ class FileContentManager {
    */
   scheduleScanLoop(): void {
     const delayMilliseconds = 30000; // 30 seconds
-    setInterval(() => this.runScanLoopIteration(), delayMilliseconds);
+    setTimeout(() => this.runScanLoopIteration(), delayMilliseconds);
   }
 
   private async runScanLoopIteration(): Promise<void> {

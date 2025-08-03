@@ -114,7 +114,7 @@ export class SoiaLanguageExtension {
       try {
         this.setFileContent(uri, {
           content: document.getText(),
-          lastModified: undefined,
+          lastModified: Date.now(),
         });
       } catch (error) {
         console.error(`Error setting file content for ${uri}:`, error);
@@ -321,8 +321,8 @@ interface ModuleWorkspace {
 
 interface FileContent {
   content: string;
-  /** Mtime or undefined if the last modification comes from the editor. */
-  lastModified: number | undefined;
+  /** Mtime */
+  lastModified: number;
 }
 
 interface ModuleBundle {
@@ -475,7 +475,7 @@ class SoiaDefinitionProvider implements vscode.DefinitionProvider {
 
       this.soiaLanguageExtension.setFileContent(uri, {
         content,
-        lastModified: undefined,
+        lastModified: Date.now(),
       });
       return this.soiaLanguageExtension.findDefinitionAt(uri, offset);
     } catch (error) {

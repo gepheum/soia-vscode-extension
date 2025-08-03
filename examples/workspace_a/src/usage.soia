@@ -1,6 +1,6 @@
 // Example usage of Soia imports and definitions
 
-import * as geometry from "geometry.soia";
+import * as geometry from "./geometry.soia";
 
 // Define a new shape using imported types
 struct Rectangle {

@@ -232,7 +232,7 @@ export class SoiaLanguageExtension {
 
   /** Finds the workspace which contains the given module URI. */
   private findModuleWorkspace(
-    moduleBundle: ModuleBundle
+    moduleBundle: ModuleBundle,
   ): ModuleWorkspace | undefined {
     let match: Workspace | undefined;
     const leftIsBetter = (left: Workspace, right: Workspace | undefined) => {
@@ -256,15 +256,15 @@ export class SoiaLanguageExtension {
       // Raise a warning that no workspace was found.
       // Also include all the lexical and parsing errors.
       const warning = new vscode.Diagnostic(
-        new vscode.Range(
-        new vscode.Position(0, 0),
-        new vscode.Position(0, 0),
-      ),
+        new vscode.Range(new vscode.Position(0, 0), new vscode.Position(0, 0)),
         "No soia workspace found; add a soia.yml file",
         vscode.DiagnosticSeverity.Warning,
       );
+      const errors = moduleBundle.astTree.errors.filter(
+        (error) => !error.errorIsInOtherModule,
+      );
       const diagnostics = [warning].concat(
-        errorsToDiagnostics(moduleBundle.astTree.errors, moduleBundle)
+        errorsToDiagnostics(errors, moduleBundle),
       );
       this.diagnosticCollection.set(vscode.Uri.parse(moduleUri), diagnostics);
       return undefined;
@@ -424,7 +424,10 @@ class Workspace implements ModuleParser {
       const moduleSet = new ModuleSet(this);
       for (const [modulePath, moduleBundle] of this.modules.entries()) {
         const parseResult = moduleSet.parseAndResolve(modulePath);
-        this.updateDiagnostics(moduleBundle, parseResult.errors);
+        const errors = parseResult.errors.filter(
+          (error) => !error.errorIsInOtherModule,
+        );
+        this.updateDiagnostics(moduleBundle, errors);
       }
     } catch (error) {
       console.error(`Error during resolution:`, error);

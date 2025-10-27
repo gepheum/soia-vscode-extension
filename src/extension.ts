@@ -13,7 +13,7 @@ import type {
 } from "soiac/dist/types";
 import * as vscode from "vscode";
 import * as yaml from "yaml";
-import { ValidationError, fromZodError } from "zod-validation-error";
+import { fromZodError, ValidationError } from "zod-validation-error";
 
 export class SoiaLanguageExtension {
   private readonly diagnosticCollection: vscode.DiagnosticCollection;
@@ -238,7 +238,10 @@ export class SoiaLanguageExtension {
     moduleBundle: ModuleBundle,
   ): ModuleWorkspace | undefined {
     let match: Workspace | undefined;
-    const leftIsBetter = (left: Workspace, right: Workspace | undefined) => {
+    const leftIsBetter = (
+      left: Workspace,
+      right: Workspace | undefined,
+    ): boolean => {
       if (right === undefined || left.rootUri.length < right.rootUri.length) {
         return true;
       }
@@ -693,7 +696,9 @@ function errorsToDiagnostics(
 const fileContentManager = new FileContentManager(soiaLanguageExtension);
 
 // VS Code extension activation
-export async function activate(context: vscode.ExtensionContext) {
+export async function activate(
+  context: vscode.ExtensionContext,
+): Promise<void> {
   console.log("Soia Language Support extension is now active");
 
   // Perform initial scan of workspace
@@ -710,6 +715,6 @@ export async function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(fileContentManager, definitionDisposable);
 }
 
-export function deactivate() {
+export function deactivate(): void {
   fileContentManager.dispose();
 }

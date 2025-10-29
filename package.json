@@ -22,6 +22,9 @@
     "serialization",
     "rpc"
   ],
+  "activationEvents": [
+    "onLanguage:soia"
+  ],
   "main": "./dist/extension.js",
   "contributes": {
     "languages": [

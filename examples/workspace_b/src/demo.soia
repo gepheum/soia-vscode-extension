@@ -59,3 +59,5 @@ struct AuditLog {
   user_id: uint64;
   action: string;
 }
+
+const MINUS_ONE_AND_A_HALF: float64 = -1.5;

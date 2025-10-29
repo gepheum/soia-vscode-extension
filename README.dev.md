@@ -50,6 +50,6 @@ This guide explains how to test and develop the Soia language extension for Visu
 ## Method 3: Publish
 
 ```bash
-ssce package
+vsce package
 vsce publish
 ```

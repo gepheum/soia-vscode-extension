@@ -1,6 +1,6 @@
 {
   "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
-  "name": "Soia",
+  "name": "Skir",
   "patterns": [
     { "include": "#comments" },
     { "include": "#keywords" },
@@ -15,12 +15,12 @@
     "comments": {
       "patterns": [
         {
-          "name": "comment.line.double-slash.soia",
+          "name": "comment.line.double-slash.skir",
           "begin": "//",
           "end": "$"
         },
         {
-          "name": "comment.block.soia",
+          "name": "comment.block.skir",
           "begin": "/\\*",
           "end": "\\*/"
         }
@@ -29,7 +29,7 @@
     "keywords": {
       "patterns": [
         {
-          "name": "keyword.control.soia",
+          "name": "keyword.control.skir",
           "match": "\\b(struct|enum|const|method|import|from|as|removed)\\b"
         }
       ]
@@ -37,11 +37,11 @@
     "types": {
       "patterns": [
         {
-          "name": "storage.type.soia",
+          "name": "storage.type.skir",
           "match": "\\b(bool|int32|int64|uint32|uint64|float32|float64|string|bytes|timestamp)\\b"
         },
         {
-          "name": "storage.type.soia",
+          "name": "storage.type.skir",
           "match": "\\b([A-Z][A-Za-z0-9_]*)\\b"
         }
       ]
@@ -49,23 +49,23 @@
     "strings": {
       "patterns": [
         {
-          "name": "string.quoted.double.soia",
+          "name": "string.quoted.double.skir",
           "begin": "\"",
           "end": "\"",
           "patterns": [
             {
-              "name": "constant.character.escape.soia",
+              "name": "constant.character.escape.skir",
               "match": "\\\\."
             }
           ]
         },
         {
-          "name": "string.quoted.single.soia",
+          "name": "string.quoted.single.skir",
           "begin": "'",
           "end": "'",
           "patterns": [
             {
-              "name": "constant.character.escape.soia",
+              "name": "constant.character.escape.skir",
               "match": "\\\\."
             }
           ]
@@ -75,11 +75,11 @@
     "constants": {
       "patterns": [
         {
-          "name": "constant.language.soia",
+          "name": "constant.language.skir",
           "match": "\\b(true|false|null)\\b"
         },
         {
-          "name": "constant.other.soia",
+          "name": "constant.other.skir",
           "match": "\\b([A-Z][A-Z0-9_]*)\\b"
         }
       ]
@@ -87,7 +87,7 @@
     "numbers": {
       "patterns": [
         {
-          "name": "constant.numeric.soia",
+          "name": "constant.numeric.skir",
           "match": "\\b(-?\\d+(\\.\\d+)?([eE][+-]?\\d+)?)\\b"
         }
       ]
@@ -95,7 +95,7 @@
     "function-calls": {
       "patterns": [
         {
-          "name": "entity.name.function.soia",
+          "name": "entity.name.function.skir",
           "match": "\\b([a-zA-Z_][a-zA-Z0-9_]*)\\s*(?=\\()"
         }
       ]
@@ -105,25 +105,25 @@
         {
           "match": "\\b(import)\\s+([A-Za-z_][A-Za-z0-9_]*)\\s+(from)\\s+\"([^\"]+)\"",
           "captures": {
-            "1": { "name": "keyword.control.import.soia" },
-            "2": { "name": "entity.name.type.soia" },
-            "3": { "name": "keyword.control.from.soia" },
-            "4": { "name": "string.quoted.double.soia" }
+            "1": { "name": "keyword.control.import.skir" },
+            "2": { "name": "entity.name.type.skir" },
+            "3": { "name": "keyword.control.from.skir" },
+            "4": { "name": "string.quoted.double.skir" }
           }
         },
         {
           "match": "\\b(import)\\s+(\\*)\\s+(as)\\s+([A-Za-z_][A-Za-z0-9_]*)\\s+(from)\\s+\"([^\"]+)\"",
           "captures": {
-            "1": { "name": "keyword.control.import.soia" },
-            "2": { "name": "constant.other.soia" },
-            "3": { "name": "keyword.control.as.soia" },
-            "4": { "name": "entity.name.namespace.soia" },
-            "5": { "name": "keyword.control.from.soia" },
-            "6": { "name": "string.quoted.double.soia" }
+            "1": { "name": "keyword.control.import.skir" },
+            "2": { "name": "constant.other.skir" },
+            "3": { "name": "keyword.control.as.skir" },
+            "4": { "name": "entity.name.namespace.skir" },
+            "5": { "name": "keyword.control.from.skir" },
+            "6": { "name": "string.quoted.double.skir" }
           }
         }
       ]
     }
   },
-  "scopeName": "source.soia"
+  "scopeName": "source.skir"
 }

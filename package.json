@@ -1,50 +1,50 @@
 {
-  "name": "soia-language",
-  "displayName": "Soia - Language Support",
-  "description": "Language support for Soia - a language for representing data types, constants and RPC interfaces",
-  "version": "0.1.10",
+  "name": "skir-language",
+  "displayName": "Skir - Language Support",
+  "description": "Language support for Skir - a language for representing data types, constants and RPC interfaces",
+  "version": "0.1.0",
   "publisher": "TylerFibonacci",
   "engines": {
     "vscode": "^1.60.0"
   },
-  "icon": "resources/soia-icon.png",
+  "icon": "resources/skir-icon.png",
   "repository": {
     "type": "git",
-    "url": "https://github.com/gepheum/soia"
+    "url": "https://github.com/gepheum/skir"
   },
   "categories": [
     "Programming Languages"
   ],
   "keywords": [
-    "soia",
+    "skir",
     "protocol buffer",
     "protobuf",
     "serialization",
     "rpc"
   ],
   "activationEvents": [
-    "onLanguage:soia"
+    "onLanguage:skir"
   ],
   "main": "./dist/extension.js",
   "contributes": {
     "languages": [
       {
-        "id": "soia",
+        "id": "skir",
         "aliases": [
-          "Soia",
-          "soia"
+          "Skir",
+          "skir"
         ],
         "extensions": [
-          ".soia"
+          ".skir"
         ],
         "configuration": "./language-configuration.json"
       }
     ],
     "grammars": [
       {
-        "language": "soia",
-        "scopeName": "source.soia",
-        "path": "./syntaxes/soia.tmLanguage.json"
+        "language": "skir",
+        "scopeName": "source.skir",
+        "path": "./syntaxes/skir.tmLanguage.json"
       }
     ]
   },
@@ -59,19 +59,25 @@
     "package": "vsce package"
   },
   "dependencies": {
-    "soiac": "^1.0.49",
-    "yaml": "^2.5.1",
-    "zod-validation-error": "^3.4.0"
+    "skir": "^1.0.1",
+    "skir-internal": "0.0.8"
   },
   "devDependencies": {
-    "@types/node": "^16.11.7",
+    "@eslint/js": "^9.39.2",
+    "@types/mocha": "^10.0.1",
+    "@types/node": "^20.6.0",
     "@types/vscode": "^1.60.0",
-    "@typescript-eslint/eslint-plugin": "^6.13.0",
-    "@typescript-eslint/parser": "^6.13.0",
-    "eslint": "^8.13.0",
-    "prettier": "^3.6.2",
+    "@typescript-eslint/eslint-plugin": "^8.50.1",
+    "@typescript-eslint/parser": "^8.50.1",
+    "buckwheat": "^1.1.2",
+    "eslint": "^9.39.2",
+    "mocha": "^11.7.5",
+    "prettier": "^3.2.4",
     "prettier-plugin-organize-imports": "^4.2.0",
-    "typescript": "^4.7.2",
+    "ts-node": "^10.9.2",
+    "tsx": "^4.21.0",
+    "typescript": "^5.2.2",
+    "typescript-eslint": "^8.50.1",
     "vsce": "^1.97.0"
   }
 }

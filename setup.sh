@@ -1,8 +1,8 @@
 #!/bin/zsh
 
-# This script helps set up and run the Soia VSCode extension
+# This script helps set up and run the Skir VSCode extension
 
-echo "Setting up Soia VSCode extension..."
+echo "Setting up Skir VSCode extension..."
 
 # Install dependencies
 npm install
@@ -15,8 +15,8 @@ if [ $? -eq 0 ]; then
   echo "✅ Compilation successful!"
   
   # Check if icon exists
-  if [ ! -f "./resources/soia-icon.png" ]; then
-    echo "⚠️  Warning: soia-icon.png not found in resources directory."
+  if [ ! -f "./resources/skir-icon.png" ]; then
+    echo "⚠️  Warning: skir-icon.png not found in resources directory."
     echo "   Please follow the instructions in resources/ICON_INSTRUCTIONS.md to create the icon."
   fi
   
@@ -24,7 +24,7 @@ if [ $? -eq 0 ]; then
   echo "To test the extension:"
   echo "1. Open this folder in VS Code"
   echo "2. Press F5 to launch the extension in a new Extension Development Host window"
-  echo "3. Open any .soia file in the examples directory to test syntax highlighting"
+  echo "3. Open any .skir file in the examples directory to test syntax highlighting"
   echo "4. Try the 'Go to Definition' feature by Ctrl+clicking (or Cmd+clicking) on imported symbols"
   echo ""
   echo "To package the extension:"

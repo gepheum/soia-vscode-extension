@@ -1,4 +1,4 @@
-// Example of Soia features
+// Example of Skir features
 
 // Struct definition with explicit field numbers
 struct User {
@@ -9,7 +9,7 @@ struct User {
 }
 
 // Enum definition
-enum UserRole { 
+enum UserRole {
   VIEWER;
   EDITOR;
   ADMIN;
@@ -59,3 +59,5 @@ struct AuditLog {
   user_id: uint64;
   action: string;
 }
+
+const MINUS_ONE_AND_A_HALF: float64 = -1.5;

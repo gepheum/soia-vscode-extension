@@ -1,54 +1,66 @@
-import { SoiaConfig } from "soiac/dist/config.js";
-import { findDefinition } from "soiac/dist/definition_finder.js";
-import { ModuleParser, ModuleSet } from "soiac/dist/module_set.js";
-import { parseModule } from "soiac/dist/parser.js";
-import { tokenizeModule } from "soiac/dist/tokenizer.js";
 import type {
   Module,
   MutableModule,
   RecordKey,
   RecordLocation,
   Result,
-  SoiaError,
-} from "soiac/dist/types";
+  SkirError,
+} from "skir-internal";
+import { parseSkirConfig, SkirConfigError } from "skir/dist/config_parser.js";
+import { findDefinition } from "skir/dist/definition_finder.js";
+import { ModuleParser, ModuleSet } from "skir/dist/module_set.js";
+import { parseModule } from "skir/dist/parser.js";
+import { tokenizeModule } from "skir/dist/tokenizer.js";
 import * as vscode from "vscode";
-import * as yaml from "yaml";
-import { fromZodError, ValidationError } from "zod-validation-error";
 
-export class SoiaLanguageExtension {
+export class SkirLanguageExtension {
   private readonly diagnosticCollection: vscode.DiagnosticCollection;
 
   constructor() {
     this.diagnosticCollection =
-      vscode.languages.createDiagnosticCollection("soia");
+      vscode.languages.createDiagnosticCollection("skir");
   }
 
   setFileContent(uri: string, content: FileContent): void {
     this.deleteFile(uri);
     const fileType = getFileType(uri);
     switch (fileType) {
-      case "soia.yml": {
-        const workspace = this.parseSoiaConfig(content, uri);
+      case "skir.yml": {
+        const workspace = this.doParseSkirConfig(content, uri);
         if (workspace instanceof Workspace) {
           this.workspaces.set(uri, workspace);
           this.reassignModulesToWorkspaces();
         } else {
-          const validationError = workspace;
+          const errors = workspace;
           const zeroRange = new vscode.Range(
             new vscode.Position(0, 0),
             new vscode.Position(0, 0),
           );
-          const diagnostic = new vscode.Diagnostic(
-            zeroRange,
-            validationError.message,
-            vscode.DiagnosticSeverity.Error,
+          const diagnostics = errors.map(
+            (e) =>
+              new vscode.Diagnostic(
+                e.range
+                  ? new vscode.Range(
+                      new vscode.Position(
+                        e.range.start.lineNumber - 1,
+                        e.range.start.colNumber - 1,
+                      ),
+                      new vscode.Position(
+                        e.range.end.lineNumber - 1,
+                        e.range.end.colNumber - 1,
+                      ),
+                    )
+                  : zeroRange,
+                e.message,
+                vscode.DiagnosticSeverity.Error,
+              ),
           );
-          this.diagnosticCollection.set(vscode.Uri.parse(uri), [diagnostic]);
+          this.diagnosticCollection.set(vscode.Uri.parse(uri), diagnostics);
         }
         break;
       }
-      case "*.soia": {
-        const moduleBundle = this.parseSoiaModule(content, uri);
+      case "*.skir": {
+        const moduleBundle = this.parseSkirModule(content, uri);
         const moduleWorkspace = this.findModuleWorkspace(moduleBundle);
         this.moduleBundles.set(uri, moduleBundle);
         if (moduleWorkspace) {
@@ -75,13 +87,13 @@ export class SoiaLanguageExtension {
 
     const fileType = getFileType(uri);
     switch (fileType) {
-      case "soia.yml": {
+      case "skir.yml": {
         if (this.workspaces.delete(uri)) {
           this.reassignModulesToWorkspaces();
         }
         break;
       }
-      case "*.soia": {
+      case "*.skir": {
         // Cancel the `scheduledSetFileContent` if it exists
         const timeout = this.uriToTimeout.get(uri);
         if (timeout) {
@@ -195,29 +207,24 @@ export class SoiaLanguageExtension {
     });
   }
 
-  private parseSoiaConfig(
+  private doParseSkirConfig(
     content: FileContent,
     uri: string,
-  ): Workspace | ValidationError {
-    let soiaConfig: SoiaConfig;
-    {
-      // `yaml.parse` fail with a helpful error message, no need to add context.
-      const parseResult = SoiaConfig.safeParse(yaml.parse(content.content));
-      if (parseResult.success) {
-        soiaConfig = parseResult.data;
-      } else {
-        return fromZodError(parseResult.error);
-      }
+  ): Workspace | readonly SkirConfigError[] {
+    const skirConfigResult = parseSkirConfig(content.content);
+    if (skirConfigResult.errors.length > 0) {
+      return skirConfigResult.errors;
     }
 
-    let rootUri = new URL(soiaConfig.srcDir || ".", uri).href;
+    const skirConfig = skirConfigResult.skirConfig!;
+    let rootUri = new URL(skirConfig.srcDir || ".", uri).href;
     if (!rootUri.endsWith("/")) {
       rootUri += "/";
     }
     return new Workspace(rootUri, content, this.diagnosticCollection);
   }
 
-  private parseSoiaModule(content: FileContent, uri: string): ModuleBundle {
+  private parseSkirModule(content: FileContent, uri: string): ModuleBundle {
     let astTree: Result<Module | null>;
     {
       const tokens = tokenizeModule(content.content, uri);
@@ -227,7 +234,7 @@ export class SoiaLanguageExtension {
           errors: tokens.errors,
         };
       } else {
-        astTree = parseModule(tokens.result, uri);
+        astTree = parseModule(tokens.result);
       }
     }
     return { uri, content, astTree };
@@ -263,7 +270,7 @@ export class SoiaLanguageExtension {
       // Also include all the lexical and parsing errors.
       const warning = new vscode.Diagnostic(
         new vscode.Range(new vscode.Position(0, 0), new vscode.Position(0, 0)),
-        "No soia workspace found; add a soia.yml file",
+        "No skir workspace found; add a skir.yml file",
         vscode.DiagnosticSeverity.Warning,
       );
       const errors = moduleBundle.astTree.errors.filter(
@@ -308,11 +315,11 @@ export class SoiaLanguageExtension {
   private readonly uriToTimeout = new Map<string, NodeJS.Timeout>();
 }
 
-function getFileType(uri: string): "soia.yml" | "*.soia" | null {
-  if (uri.endsWith("/soia.yml")) {
-    return "soia.yml";
-  } else if (uri.endsWith(".soia")) {
-    return "*.soia";
+function getFileType(uri: string): "skir.yml" | "*.skir" | null {
+  if (uri.endsWith("/skir.yml")) {
+    return "skir.yml";
+  } else if (uri.endsWith(".skir")) {
+    return "*.skir";
   }
   return null;
 }
@@ -451,7 +458,7 @@ class Workspace implements ModuleParser {
 
   private updateDiagnostics(
     moduleBundle: ModuleBundle,
-    errors: readonly SoiaError[],
+    errors: readonly SkirError[],
   ): void {
     const { uri } = moduleBundle;
     if (errors.length <= 0) {
@@ -462,10 +469,10 @@ class Workspace implements ModuleParser {
   }
 }
 
-const soiaLanguageExtension = new SoiaLanguageExtension();
+const skirLanguageExtension = new SkirLanguageExtension();
 
-class SoiaDefinitionProvider implements vscode.DefinitionProvider {
-  constructor(private readonly soiaLanguageExtension: SoiaLanguageExtension) {}
+class SkirDefinitionProvider implements vscode.DefinitionProvider {
+  constructor(private readonly skirLanguageExtension: SkirLanguageExtension) {}
 
   provideDefinition(
     document: vscode.TextDocument,
@@ -476,11 +483,11 @@ class SoiaDefinitionProvider implements vscode.DefinitionProvider {
       const uri = document.uri.toString();
       const content = document.getText();
 
-      this.soiaLanguageExtension.setFileContent(uri, {
+      this.skirLanguageExtension.setFileContent(uri, {
         content,
         lastModified: Date.now(),
       });
-      return this.soiaLanguageExtension.findDefinitionAt(uri, offset);
+      return this.skirLanguageExtension.findDefinitionAt(uri, offset);
     } catch (error) {
       console.error(`Error finding definition at ${position}:`, error);
       throw error;
@@ -492,16 +499,16 @@ class FileContentManager {
   private readonly documentChangeListener: vscode.Disposable;
   private disposed = false;
 
-  constructor(private readonly soiaLanguageExtension: SoiaLanguageExtension) {
+  constructor(private readonly skirLanguageExtension: SkirLanguageExtension) {
     // Listen for document changes (unsaved edits)
     this.documentChangeListener = vscode.workspace.onDidChangeTextDocument(
       (event) => {
         const uri = event.document.uri;
         const uriString = uri.toString();
 
-        // Only handle soia.yml and .soia files
+        // Only handle skir.yml and .skir files
         if (getFileType(uriString)) {
-          this.soiaLanguageExtension.scheduleSetFileContent(
+          this.skirLanguageExtension.scheduleSetFileContent(
             uriString,
             event.document,
           );
@@ -520,24 +527,24 @@ class FileContentManager {
 
     for (const folder of workspaceFolders) {
       let files = await vscode.workspace.findFiles(
-        new vscode.RelativePattern(folder, "**/{soia.yml,*.soia}"),
+        new vscode.RelativePattern(folder, "**/{skir.yml,*.skir}"),
       );
-      // Make sure soia.yml files are processed first
+      // Make sure skir.yml files are processed first
       files = files.sort((a, b) => {
-        const aIsSoiaYml = a.toString().endsWith("/soia.yml");
-        const bIsSoiaYml = b.toString().endsWith("/soia.yml");
+        const aIsSkirYml = a.toString().endsWith("/skir.yml");
+        const bIsSkirYml = b.toString().endsWith("/skir.yml");
 
-        if (aIsSoiaYml && !bIsSoiaYml) {
+        if (aIsSkirYml && !bIsSkirYml) {
           return -1;
         }
-        if (!aIsSoiaYml && bIsSoiaYml) {
+        if (!aIsSkirYml && bIsSkirYml) {
           return 1;
         }
         return 0;
       });
       for (const uri of files) {
         const uriString = uri.toString();
-        const oldContent = this.soiaLanguageExtension.getFileContent(uriString);
+        const oldContent = this.skirLanguageExtension.getFileContent(uriString);
         let mtime: number | undefined;
         try {
           const stat = await vscode.workspace.fs.stat(uri);
@@ -566,7 +573,7 @@ class FileContentManager {
           // No need to update, content is the same.
           continue;
         }
-        this.soiaLanguageExtension.setFileContent(uriString, {
+        this.skirLanguageExtension.setFileContent(uriString, {
           content,
           lastModified: mtime,
         });
@@ -576,7 +583,7 @@ class FileContentManager {
 
   /**
    * Starts a loop that periodically runs garbage collection on all files stored
-   * in `soiaLanguageExtension` and then runs a scan on the filesystem.
+   * in `skirLanguageExtension` and then runs a scan on the filesystem.
    */
   scheduleScanLoop(): void {
     const delayMilliseconds = 30000; // 30 seconds
@@ -588,7 +595,7 @@ class FileContentManager {
       return;
     }
     try {
-      await this.soiaLanguageExtension.runGarbageCollection();
+      await this.skirLanguageExtension.runGarbageCollection();
       await this.runScan();
     } catch (error) {
       console.error("Error during scheduled scan:", error);
@@ -670,7 +677,7 @@ class PositionTracker {
 }
 
 function errorsToDiagnostics(
-  errors: readonly SoiaError[],
+  errors: readonly SkirError[],
   moduleBundle: ModuleBundle,
 ): vscode.Diagnostic[] {
   const positionTracker = new PositionTracker(moduleBundle.content.content);
@@ -693,21 +700,21 @@ function errorsToDiagnostics(
   });
 }
 
-const fileContentManager = new FileContentManager(soiaLanguageExtension);
+const fileContentManager = new FileContentManager(skirLanguageExtension);
 
 // VS Code extension activation
 export async function activate(
   context: vscode.ExtensionContext,
 ): Promise<void> {
-  console.log("Soia Language Support extension is now active");
+  console.log("Skir Language Support extension is now active");
 
   // Perform initial scan of workspace
   await fileContentManager.runScan();
 
-  // Register definition provider for soia files
-  const definitionProvider = new SoiaDefinitionProvider(soiaLanguageExtension);
+  // Register definition provider for skir files
+  const definitionProvider = new SkirDefinitionProvider(skirLanguageExtension);
   const definitionDisposable = vscode.languages.registerDefinitionProvider(
-    { scheme: "file", language: "soia" },
+    { scheme: "file", language: "skir" },
     definitionProvider,
   );
 

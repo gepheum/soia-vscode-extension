@@ -1,5 +1,5 @@
 // Example geometry definitions
-// This file demonstrates Soia language features
+// This file demonstrates Skir language features
 
 struct Point {
   x: int32;

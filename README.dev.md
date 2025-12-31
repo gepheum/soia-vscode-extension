@@ -1,35 +1,30 @@
-# Soia VSCode Extension - Development Guide
+# Skir VSCode Extension - Development Guide
 
-This guide explains how to test and develop the Soia language extension for Visual Studio Code.
+This guide explains how to test and develop the Skir language extension for Visual Studio Code.
 
 ## Method 1: Development/Testing Mode (Recommended for development)
 
-1. **Navigate to the extension directory:**
-   ```bash
-   cd /Users/clementroux/Documents/Gepheum/soia/plugins/vscode
-   ```
-
-2. **Install dependencies:**
+1. **Install dependencies:**
    ```bash
    npm install
    ```
 
-3. **Compile the TypeScript:**
+2. **Compile the TypeScript:**
    ```bash
    npm run compile
    ```
 
-4. **Open the extension folder in VS Code:**
+3. **Open the extension folder in VS Code:**
    ```bash
    code .
    ```
 
-5. **Launch Extension Development Host:**
+4. **Launch Extension Development Host:**
    - Press `F5` or go to `Run > Start Debugging`
    - This will open a new VS Code window titled "Extension Development Host"
 
-6. **Test the extension:**
-   - In the Extension Development Host window, open or create a `.soia` file
+5. **Test the extension:**
+   - In the Extension Development Host window, open or create a `.skir` file
    - You should see syntax highlighting working
    - Try the "Go to Definition" feature by Ctrl/Cmd+clicking on symbols
 

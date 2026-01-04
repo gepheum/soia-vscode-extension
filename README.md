@@ -5,6 +5,7 @@ This extension provides language support for the Skir language - a language for 
 ## Features
 
 - Syntax highlighting for Skir files (`.skir` extension)
+- Format on save
 - Go to definition for symbols and imports
 - Hover information for symbols
 - Comment toggling (line and block comments)
@@ -25,8 +26,9 @@ struct Point {
   label: string;
 }
 
-struct Polyline {
+struct Shape {
   points: [Point];
+  /// A short string describing this shape.
   label: string;
 }
 
@@ -36,8 +38,8 @@ const TOP_RIGHT_CORNER: Point = {
   label = "top-right corner",
 };
 
-// Method of an RPC interface
-method IsPalindrome(string): bool;
+/// Returns true if no part of the shape's boundary curves inward.
+method IsConvex(Shape): bool = 12345;
 ```
 
 ## Go to Definition
@@ -52,6 +54,10 @@ This extension supports navigating to the definition of symbols within your Skir
 No special requirements for this extension.
 
 ## Release Notes
+
+### 0.1.1
+
+- Format on save
 
 ### 0.1.0
 

@@ -38,7 +38,7 @@
       "patterns": [
         {
           "name": "storage.type.skir",
-          "match": "\\b(bool|int32|int64|uint32|uint64|float32|float64|string|bytes|timestamp)\\b"
+          "match": "\\b(bool|int32|int64|hash64|float32|float64|string|bytes|timestamp)\\b"
         },
         {
           "name": "storage.type.skir",

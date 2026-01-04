@@ -3,7 +3,7 @@
 import * as geometry from "./geometry.skir";
 
 // Define a new shape using imported types
-struct Rectangle {
+struct Rectangle(957314) {
   top_left: geometry.Point;
   bottom_right: geometry.Point;
   color: geometry.Color;
@@ -49,7 +49,7 @@ struct Shape {
 }
 
 // Example of a method definition
-method CalculateArea(Shape): float64;
+method CalculateArea(Shape): float64 = 201181;
 
 // Example of removed fields
 struct VersionedData {

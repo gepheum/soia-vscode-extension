@@ -2,14 +2,14 @@
 
 // Struct definition with explicit field numbers
 struct User {
-  user_id: uint64 = 0;
+  user_id: int32 = 0;
   username: string = 1;
   email: string = 2;
   active: bool = 3;
 }
 
 // Enum definition
-enum UserRole { 
+enum UserRole {
   VIEWER;
   EDITOR;
   ADMIN;
@@ -50,12 +50,13 @@ const SERVER_ERROR: ApiResponse = {
 };
 
 // Method definitions for RPC interface
-method GetUser(uint64): User;
-method UpdateUser(User): ApiResponse;
+method GetUser(int32): User = 500;
+method UpdateUser(User): ApiResponse = 501;
 
 // Example of timestamp type
 struct AuditLog {
   timestamp: timestamp;
-  user_id: uint64;
+
+  user_id: int32;
   action: string;
 }

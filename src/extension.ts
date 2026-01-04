@@ -8,10 +8,41 @@ import type {
 } from "skir-internal";
 import { parseSkirConfig, SkirConfigError } from "skir/dist/config_parser.js";
 import { findDefinition } from "skir/dist/definition_finder.js";
+import { formatModule } from "skir/dist/formatter.js";
 import { ModuleParser, ModuleSet } from "skir/dist/module_set.js";
 import { parseModule } from "skir/dist/parser.js";
 import { tokenizeModule } from "skir/dist/tokenizer.js";
 import * as vscode from "vscode";
+
+// Formatting provider for Skir files
+class SkirFormattingProvider implements vscode.DocumentFormattingEditProvider {
+  provideDocumentFormattingEdits(
+    document: vscode.TextDocument,
+  ): vscode.TextEdit[] {
+    const unformattedCode = document.getText();
+    const tokens = tokenizeModule(unformattedCode, "");
+    if (tokens.errors.length) {
+      return [];
+    }
+    // Make sure no parsing errors exist before formatting
+    if (parseModule(tokens.result, "lenient").errors.length) {
+      return [];
+    }
+
+    const textEdits = formatModule(tokens.result).textEdits;
+    return textEdits.map((edit) =>
+      vscode.TextEdit.replace(
+        new vscode.Range(
+          document.positionAt(edit.oldStart),
+          document.positionAt(edit.oldEnd),
+        ),
+        edit.newText,
+      ),
+    );
+  }
+
+  dispose(): void {}
+}
 
 export class SkirLanguageExtension {
   private readonly diagnosticCollection: vscode.DiagnosticCollection;
@@ -234,7 +265,7 @@ export class SkirLanguageExtension {
           errors: tokens.errors,
         };
       } else {
-        astTree = parseModule(tokens.result);
+        astTree = parseModule(tokens.result, "lenient");
       }
     }
     return { uri, content, astTree };
@@ -300,7 +331,7 @@ export class SkirLanguageExtension {
           .stat(vscode.Uri.parse(uri))
           .then();
         isFile = stat.type === vscode.FileType.File;
-      } catch (error) {
+      } catch (_error) {
         // Do nothing, the file does not exist.
       }
       if (!isFile) {
@@ -718,8 +749,40 @@ export async function activate(
     definitionProvider,
   );
 
+  // Register document formatting provider for skir files
+  const formattingProvider = new SkirFormattingProvider();
+  const formattingDisposable =
+    vscode.languages.registerDocumentFormattingEditProvider(
+      { scheme: "file", language: "skir" },
+      formattingProvider,
+    );
+
+  // Register format on save handler
+  const formatOnSaveDisposable = vscode.workspace.onWillSaveTextDocument(
+    async (event) => {
+      if (event.document.languageId === "skir") {
+        // Format the document before saving
+        const edits = formattingProvider.provideDocumentFormattingEdits(
+          event.document,
+        );
+
+        if (edits && edits.length > 0) {
+          const workspaceEdit = new vscode.WorkspaceEdit();
+          workspaceEdit.set(event.document.uri, edits);
+          event.waitUntil(vscode.workspace.applyEdit(workspaceEdit));
+        }
+      }
+    },
+  );
+
   // Add to subscriptions for proper cleanup
-  context.subscriptions.push(fileContentManager, definitionDisposable);
+  context.subscriptions.push(
+    fileContentManager,
+    definitionDisposable,
+    formattingProvider,
+    formattingDisposable,
+    formatOnSaveDisposable,
+  );
 }
 
 export function deactivate(): void {

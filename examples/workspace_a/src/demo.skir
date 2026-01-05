@@ -1,15 +1,17 @@
 // Example of Skir features
 
 // Struct definition with explicit field numbers
-struct User {
+/// Fooo [UserRole].
+struct User(100) {
   user_id: int32 = 0;
   username: string = 1;
   email: string = 2;
   active: bool = 3;
+  user_role: UserRole = 4;
 }
 
 // Enum definition
-enum UserRole {
+enum UserRole(480758) {
   VIEWER;
   EDITOR;
   ADMIN;

@@ -5,12 +5,19 @@ import type {
   RecordLocation,
   Result,
   SkirError,
+  Token,
 } from "skir-internal";
+import {
+  checkCompatibility,
+  getTokenForBreakingChange,
+} from "skir/dist/compatibility_checker.js";
 import { parseSkirConfig, SkirConfigError } from "skir/dist/config_parser.js";
 import { findDefinition } from "skir/dist/definition_finder.js";
+import { getShortMessageForBreakingChange } from "skir/dist/error_renderer.js";
 import { formatModule } from "skir/dist/formatter.js";
 import { ModuleParser, ModuleSet } from "skir/dist/module_set.js";
 import { parseModule } from "skir/dist/parser.js";
+import { snapshotFileContentToModuleSet } from "skir/dist/snapshotter.js";
 import { tokenizeModule } from "skir/dist/tokenizer.js";
 import * as vscode from "vscode";
 
@@ -99,6 +106,26 @@ export class SkirLanguageExtension {
         }
         break;
       }
+      case "skir-snapshot.json": {
+        const snapshot = snapshotFileContentToModuleSet(content.content);
+        if (snapshot instanceof ModuleSet) {
+          // Find the workspace for this snapshot
+          const workspaceUri = uri.replace(
+            /\/skir-snapshot\.json$/,
+            "/skir.yml",
+          );
+          const workspace = this.workspaces.get(workspaceUri);
+          if (workspace) {
+            workspace.lastSnapshot = snapshot;
+            workspace.scheduleResolution();
+          } else {
+            console.error(`No workspace found for snapshot file ${uri}`);
+          }
+        } else {
+          console.error(`Failed to parse snapshot file ${uri}`);
+        }
+        break;
+      }
       default: {
         const _: null = fileType;
       }
@@ -137,6 +164,15 @@ export class SkirLanguageExtension {
           Workspace.removeModule(moduleBundle);
           // Remove the module bundle from the map
           this.moduleBundles.delete(uri);
+        }
+        break;
+      }
+      case "skir-snapshot.json": {
+        const workspaceUri = uri.replace(/\/skir-snapshot\.json$/, "/skir.yml");
+        const workspace = this.workspaces.get(workspaceUri);
+        if (workspace) {
+          workspace.lastSnapshot = undefined;
+          workspace.scheduleResolution();
         }
         break;
       }
@@ -199,7 +235,7 @@ export class SkirLanguageExtension {
       );
       return null;
     }
-    const positionTracker = new PositionTracker(target.content.content);
+    const { positionTracker } = target;
     const targetPosition = positionTracker.getPosition(
       definitionMatch.position,
     );
@@ -268,7 +304,8 @@ export class SkirLanguageExtension {
         astTree = parseModule(tokens.result, "lenient");
       }
     }
-    return { uri, content, astTree };
+    const positionTracker = new PositionTracker(content.content);
+    return { uri, content, positionTracker, astTree };
   }
 
   /** Finds the workspace which contains the given module URI. */
@@ -315,7 +352,7 @@ export class SkirLanguageExtension {
     }
     return {
       workspace: match,
-      modulePath: moduleUri.substring(match.rootUri.length),
+      modulePath: match.moduleUriToPath(moduleUri),
     };
   }
 
@@ -346,13 +383,18 @@ export class SkirLanguageExtension {
   private readonly uriToTimeout = new Map<string, NodeJS.Timeout>();
 }
 
-function getFileType(uri: string): "skir.yml" | "*.skir" | null {
+function getFileType(
+  uri: string,
+): "skir.yml" | "skir-snapshot.json" | "*.skir" | null {
   if (uri.endsWith("/skir.yml")) {
     return "skir.yml";
+  } else if (uri.endsWith("/skir-snapshot.json")) {
+    return "skir-snapshot.json";
   } else if (uri.endsWith(".skir")) {
     return "*.skir";
+  } else {
+    return null;
   }
-  return null;
 }
 
 interface ModuleWorkspace {
@@ -367,8 +409,9 @@ interface FileContent {
 }
 
 interface ModuleBundle {
-  uri: string;
-  content: FileContent;
+  readonly uri: string;
+  readonly content: FileContent;
+  readonly positionTracker: PositionTracker;
   readonly astTree: Result<Module | null>;
   moduleWorkspace?: ModuleWorkspace;
 }
@@ -388,6 +431,7 @@ class Workspace implements ModuleParser {
     promise: Promise<void>;
     callback: () => void;
   };
+  lastSnapshot?: ModuleSet;
 
   static addModule(
     moduleBundle: ModuleBundle,
@@ -470,17 +514,65 @@ class Workspace implements ModuleParser {
    * Stores the errors in every module bundle.
    */
   private resolve(): void {
+    const { lastSnapshot, modules } = this;
     try {
       const moduleSet = new ModuleSet(this);
-      for (const [modulePath, moduleBundle] of this.modules.entries()) {
+      let anyError = false;
+      for (const [modulePath, moduleBundle] of modules.entries()) {
         const parseResult = moduleSet.parseAndResolve(modulePath);
         const errors = parseResult.errors.filter(
           (error) => !error.errorIsInOtherModule,
         );
+        anyError = anyError || errors.length > 0;
         this.updateDiagnostics(moduleBundle, errors);
       }
+      if (anyError || !lastSnapshot) {
+        return;
+      }
+      // Look for breaking changes since the last snapshot.
+      const breakingChanges = checkCompatibility({
+        before: lastSnapshot,
+        after: moduleSet,
+      });
+      const moduleUriToDiagnostics = new Map<string, vscode.Diagnostic[]>();
+      for (const breakingChange of breakingChanges) {
+        const token = getTokenForBreakingChange(breakingChange);
+        if (!token) {
+          // Some breaking change errors can't be tied to a specific token in
+          // the new snapshot. We skip them.
+          continue;
+        }
+        const moduleUri = token.line.modulePath; // Because it's actually a URI
+        const module = modules.get(this.moduleUriToPath(moduleUri));
+        if (!module) {
+          // Should not happen.
+          console.error(`Module not found: ${moduleUri}`);
+          continue;
+        }
+        const { positionTracker } = module!;
+        const range = getRangeForToken(token, positionTracker);
+        const message =
+          "Breaking change: " +
+          getShortMessageForBreakingChange(breakingChange, lastSnapshot);
+
+        const diagnostics = moduleUriToDiagnostics.get(moduleUri) || [];
+        if (diagnostics.length <= 0) {
+          moduleUriToDiagnostics.set(moduleUri, diagnostics);
+        }
+        diagnostics.push(
+          new vscode.Diagnostic(
+            range,
+            message,
+            vscode.DiagnosticSeverity.Warning,
+          ),
+        );
+      }
+      for (const [moduleUri, diagnostics] of moduleUriToDiagnostics.entries()) {
+        const uri = vscode.Uri.parse(moduleUri);
+        this.diagnosticCollection.set(uri, diagnostics);
+      }
     } catch (error) {
-      console.error(`Error during resolution:`, error);
+      console.error("Error during resolution:", error);
     } finally {
       this.scheduledResolution?.callback();
       this.scheduledResolution = undefined;
@@ -492,11 +584,12 @@ class Workspace implements ModuleParser {
     errors: readonly SkirError[],
   ): void {
     const { uri } = moduleBundle;
-    if (errors.length <= 0) {
-      this.diagnosticCollection.set(vscode.Uri.parse(uri), []);
-    }
     const diagnostics = errorsToDiagnostics(errors, moduleBundle);
     this.diagnosticCollection.set(vscode.Uri.parse(uri), diagnostics);
+  }
+
+  moduleUriToPath(uri: string): string {
+    return uri.substring(this.rootUri.length);
   }
 }
 
@@ -537,7 +630,7 @@ class FileContentManager {
         const uri = event.document.uri;
         const uriString = uri.toString();
 
-        // Only handle skir.yml and .skir files
+        // Only handle skir.yml, skir-snapshot.json and .skir files
         if (getFileType(uriString)) {
           this.skirLanguageExtension.scheduleSetFileContent(
             uriString,
@@ -558,7 +651,10 @@ class FileContentManager {
 
     for (const folder of workspaceFolders) {
       let files = await vscode.workspace.findFiles(
-        new vscode.RelativePattern(folder, "**/{skir.yml,*.skir}"),
+        new vscode.RelativePattern(
+          folder,
+          "**/{skir.yml,*.skir,skir-snapshot.json}",
+        ),
       );
       // Make sure skir.yml files are processed first
       files = files.sort((a, b) => {
@@ -711,24 +807,29 @@ function errorsToDiagnostics(
   errors: readonly SkirError[],
   moduleBundle: ModuleBundle,
 ): vscode.Diagnostic[] {
-  const positionTracker = new PositionTracker(moduleBundle.content.content);
-  return errors.map((error) => {
-    const { token } = error;
-    const startPosition = positionTracker.getPosition(token.position);
-    const endPosition = positionTracker.getPosition(
-      token.position + token.text.length,
-    );
-    const range = new vscode.Range(
-      new vscode.Position(startPosition.line, startPosition.column),
-      new vscode.Position(endPosition.line, endPosition.column),
-    );
+  const { positionTracker } = moduleBundle;
+  return errors.map(
+    (error) =>
+      new vscode.Diagnostic(
+        getRangeForToken(error.token, positionTracker),
+        error.message || `expected: ${error.expected}`,
+        vscode.DiagnosticSeverity.Error,
+      ),
+  );
+}
 
-    return new vscode.Diagnostic(
-      range,
-      error.message || `expected: ${error.expected}`,
-      vscode.DiagnosticSeverity.Error,
-    );
-  });
+function getRangeForToken(
+  token: Token,
+  positionTracker: PositionTracker,
+): vscode.Range {
+  const startPos = positionTracker.getPosition(token.position);
+  const endPos = positionTracker.getPosition(
+    token.position + token.text.length,
+  );
+  return new vscode.Range(
+    new vscode.Position(startPos.line, startPos.column),
+    new vscode.Position(endPos.line, endPos.column),
+  );
 }
 
 const fileContentManager = new FileContentManager(skirLanguageExtension);

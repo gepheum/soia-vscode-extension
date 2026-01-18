@@ -226,7 +226,7 @@ export class SkirLanguageExtension {
 
     // Convert DefinitionMatch to vscode.Location
     const targetUri = vscode.Uri.parse(
-      new URL(definitionMatch.modulePath, workspace.rootUri).href,
+      new URL(definitionMatch.modulePath, workspace.srcUri).href,
     );
     const target = this.moduleBundles.get(targetUri.toString());
     if (!target) {
@@ -284,11 +284,11 @@ export class SkirLanguageExtension {
     }
 
     const skirConfig = skirConfigResult.skirConfig!;
-    let rootUri = new URL(skirConfig.srcDir || ".", uri).href;
-    if (!rootUri.endsWith("/")) {
-      rootUri += "/";
+    let srcUri = new URL("skir-src", uri).href;
+    if (!srcUri.endsWith("/")) {
+      srcUri += "/";
     }
-    return new Workspace(rootUri, content, this.diagnosticCollection);
+    return new Workspace(srcUri, content, this.diagnosticCollection);
   }
 
   private parseSkirModule(content: FileContent, uri: string): ModuleBundle {
@@ -317,19 +317,19 @@ export class SkirLanguageExtension {
       left: Workspace,
       right: Workspace | undefined,
     ): boolean => {
-      if (right === undefined || left.rootUri.length < right.rootUri.length) {
+      if (right === undefined || left.srcUri.length < right.srcUri.length) {
         return true;
       }
-      if (left.rootUri.length === right.rootUri.length) {
+      if (left.srcUri.length === right.srcUri.length) {
         // Completely arbitrary, just to have a consistent order.
-        return left.rootUri < right.rootUri;
+        return left.srcUri < right.srcUri;
       }
       return false;
     };
     const moduleUri = moduleBundle.uri;
     for (const workspace of this.workspaces.values()) {
-      const { rootUri } = workspace;
-      if (moduleUri.startsWith(rootUri) && leftIsBetter(workspace, match)) {
+      const { srcUri } = workspace;
+      if (moduleUri.startsWith(srcUri) && leftIsBetter(workspace, match)) {
         match = workspace;
       }
     }
@@ -418,7 +418,7 @@ interface ModuleBundle {
 
 class Workspace implements ModuleParser {
   constructor(
-    readonly rootUri: string,
+    readonly srcUri: string,
     readonly yamlContent: FileContent,
     private diagnosticCollection: vscode.DiagnosticCollection,
   ) {}
@@ -589,7 +589,7 @@ class Workspace implements ModuleParser {
   }
 
   moduleUriToPath(uri: string): string {
-    return uri.substring(this.rootUri.length);
+    return uri.substring(this.srcUri.length);
   }
 }
 

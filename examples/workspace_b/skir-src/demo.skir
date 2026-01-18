@@ -1,17 +1,15 @@
 // Example of Skir features
 
 // Struct definition with explicit field numbers
-/// Fooo [UserRole].
-struct User(100) {
+struct User {
   user_id: int32 = 0;
   username: string = 1;
   email: string = 2;
   active: bool = 3;
-  user_role: UserRole = 4;
 }
 
 // Enum definition
-enum UserRole(480758) {
+enum UserRole {
   VIEWER;
   EDITOR;
   ADMIN;
@@ -46,19 +44,22 @@ const SYSTEM_USER: User = {
 
 const DEFAULT_ROLE: UserRole = "VIEWER";
 
+const UNKNOWN_ROLE: UserRole = "UNKNOWN";
+
 const SERVER_ERROR: ApiResponse = {
   kind: "error",
   value: "Internal Server Error",
 };
 
 // Method definitions for RPC interface
-method GetUser(int32): User = 500;
-method UpdateUser(User): ApiResponse = 501;
+method GetUser(int32): User = 100;
+method UpdateUser(User): ApiResponse = 863630;
 
 // Example of timestamp type
 struct AuditLog {
   timestamp: timestamp;
-
   user_id: int32;
   action: string;
 }
+
+const MINUS_ONE_AND_A_HALF: float64 = -1.5;

@@ -1,4 +1,0 @@
-generators: []
-
-dependencies:
-  "@gepheum/skir-dependency-example": v0.0.2
